@@ -118,28 +118,36 @@
       if(v==='2' && sel.value==='2') sel.value='0';
     }
 
-    // LOG (Power): p_i = q_i^(1/alpha) / sum(q_k^(1/alpha)), com alpha = soma das probs implícitas (overround)
-    function fairProbsLOG(odds){
-      const q = odds.map(o=>1/o);
-      const alpha = q.reduce((a,b)=>a+b,0); // overround total
-      const pow = q.map(x=>Math.pow(x, 1/alpha));
-      const den = pow.reduce((a,b)=>a+b,0);
-      return pow.map(v=>v/den);
-    }
+    // LOG (Power) correto: encontre a^* tal que 
+//   sum((1/odd_i)^a) = 1  
+// então p_i = (1/odd_i)^a e odd_justa_i = 1/p_i
+function fairProbsLOG(odds){
+  const q = odds.map(o => 1/o);
+  // busca binária por 'a' em (0, 10], ajustando até sum(q_i^a) == 1
+  let lo = 0.0001, hi = 10.0;
+  for(let it=0; it<80; it++){
+    const a = (lo + hi) / 2;
+    const s = q.reduce((acc,qi)=> acc + Math.pow(qi, a), 0);
+    if(s > 1) lo = a; else hi = a;
+  }
+  const a = (lo + hi) / 2;
+  const p = q.map(qi => Math.pow(qi, a)); // já somam ~1
+  return p;
+}
 
     function fairOddsFromProbs(p){ return p.map(pi => 1/pi); }
 
-    // Kelly 12.5% (com piso 0)
-    function kellyStakePercent(p, oddCasa){
-      const b = oddCasa - 1;
-      const q = 1 - p;
-      const fStar = (b*p - q) / b; // Kelly integral
-      const fAdj = 0.125 * fStar;  // 12,5%
-      const f = Math.max(0, fAdj);
-      // arredonda em passos de 0.25%
-      const pct = f * 100;
-      return Math.round(pct * 4) / 4;
-    }
+    // Kelly 12,5% (com piso 0) + arredondamento por piso para múltiplos de 0,25%
+function kellyStakePercent(p, oddCasa){
+  const b = oddCasa - 1;
+  const q = 1 - p;
+  const fStar = (b*p - q) / b; // Kelly integral
+  const fAdj = 0.125 * fStar;  // 12,5%
+  const f = Math.max(0, fAdj);
+  // arredonda por \"piso\" em passos de 0.25% para compatibilizar com outras calculadoras
+  const pct = Math.floor((f * 100) * 4) / 4;
+  return pct;
+}
 
     function collectOdds(){
       const type = document.getElementById('marketType').value;
