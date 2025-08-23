@@ -5,34 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculadora Kelly + LOG</title>
     <style>
-        /* mesmo CSS do seu código anterior */
+        /* mesmo CSS que você já tem, não precisa mudar */
     </style>
 </head>
 <body>
     <div class="calculator">
-        <h1 class="title">Calculadora Kelly</h1>
+        <h1 class="title">Calculadora Kelly + LOG</h1>
         
         <div class="input-group">
-            <label class="input-label" for="oddJusta">Odd Justa</label>
-            <input type="text" id="oddJusta" class="input-field" placeholder="Ex: 2.50" />
-        </div>
-        
-        <div class="input-group">
-            <label class="input-label" for="oddCasa">Odd da Casa</label>
-            <input type="text" id="oddCasa" class="input-field" placeholder="Ex: 3.20" />
+            <label class="input-label" for="odd1">Odd Casa 1</label>
+            <input type="text" id="odd1" class="input-field" placeholder="Ex: 1.581" />
         </div>
 
-        <!-- NOVO BLOCO PARA O LOG -->
         <div class="input-group">
-            <label class="input-label">Odds da Casa (para calcular Odd Justa LOG)</label>
-            <input type="text" id="odd1" class="input-field" placeholder="Odd 1 (Ex: 1.80)" />
-            <input type="text" id="odd2" class="input-field" placeholder="Odd 2 (Ex: 2.00)" style="margin-top:10px;" />
-            <button class="calculate-btn" onclick="calcularOddJustaLOG()">Calcular Odd Justa (LOG)</button>
+            <label class="input-label" for="odd2">Odd Casa 2</label>
+            <input type="text" id="odd2" class="input-field" placeholder="Ex: 2.20" />
         </div>
-        <!-- FIM BLOCO -->
 
-        <button class="calculate-btn" onclick="calcularKelly()">
-            Calcular Stake
+        <div class="input-group">
+            <label class="input-label" for="oddCasa">Odd da Casa (seleção que vai apostar)</label>
+            <input type="text" id="oddCasa" class="input-field" placeholder="Ex: 1.82" />
+        </div>
+
+        <button class="calculate-btn" onclick="calcularStakeLOGKelly()">
+            Calcular Stake (LOG + Kelly)
         </button>
         
         <div id="resultado" class="result-container">
@@ -45,10 +41,10 @@
     </div>
 
     <script>
-        // === FUNÇÃO LOG ===
-        function oddsJustasLOG(oddsCasa) {
-            const probsImplicitas = oddsCasa.map(o => 1/o);
-            const somaProbs = probsImplicitas.reduce((a,b) => a+b, 0);
+        // === FUNÇÃO LOG (Power Method simplificado para 2 seleções) ===
+        function calcularOddJustaLOG(odd1, odd2) {
+            const probsImplicitas = [1/odd1, 1/odd2];
+            const somaProbs = probsImplicitas[0] + probsImplicitas[1];
 
             function ajustar(alpha) {
                 const ajustadas = probsImplicitas.map(p => Math.pow(p, alpha));
@@ -56,7 +52,7 @@
                 return ajustadas.map(p => p/soma);
             }
 
-            // busca binária para achar alpha
+            // busca binária para encontrar alpha
             let low = 0.01, high = 5, alpha = 1;
             for (let i=0; i<50; i++) {
                 alpha = (low+high)/2;
@@ -68,63 +64,36 @@
                 }
             }
 
-            return ajustar(alpha).map(p => 1/p);
+            return ajustar(alpha).map(p => 1/p); // odds justas
         }
 
-        function calcularOddJustaLOG() {
+        // === CALCULO FINAL (LOG + KELLY 12.5%) ===
+        function calcularStakeLOGKelly() {
             try {
                 const odd1 = parseFloat(document.getElementById('odd1').value.replace(',', '.'));
                 const odd2 = parseFloat(document.getElementById('odd2').value.replace(',', '.'));
+                const oddCasa = parseFloat(document.getElementById('oddCasa').value.replace(',', '.'));
 
-                if (isNaN(odd1) || isNaN(odd2) || odd1 <= 1 || odd2 <= 1) {
-                    throw new Error("Insira duas odds válidas (>1).");
+                if ([odd1, odd2, oddCasa].some(o => isNaN(o) || o <= 1)) {
+                    throw new Error('Insira odds válidas (>1).');
                 }
 
-                const oddsCasa = [odd1, odd2];
-                const oddsJustas = oddsJustasLOG(oddsCasa);
+                // calcular odds justas via LOG
+                const oddsJustas = calcularOddJustaLOG(odd1, odd2);
+                const oddJusta = oddsJustas[0]; // assume aposta na primeira odd
 
-                // pega a odd justa referente à primeira odd digitada (odd1)
-                const oddJustaCalc = oddsJustas[0].toFixed(3);
-
-                // Preenche no campo Odd Justa
-                document.getElementById('oddJusta').value = oddJustaCalc;
-
-                mostrarResultado(`Odd Justa (LOG) calculada: ${oddJustaCalc}`, false);
-
-            } catch (error) {
-                mostrarResultado(`Erro: ${error.message}`, true);
-            }
-        }
-
-        // === FUNÇÃO KELLY ===
-        function calcularKelly() {
-            try {
-                const oddJustaValue = document.getElementById('oddJusta').value.replace(',', '.');
-                const oddCasaValue = document.getElementById('oddCasa').value.replace(',', '.');
-                
-                const oddJusta = parseFloat(oddJustaValue);
-                const oddCasa = parseFloat(oddCasaValue);
-                
-                if (isNaN(oddJusta) || isNaN(oddCasa)) {
-                    throw new Error('Por favor, insira valores numéricos válidos.');
-                }
-                
-                if (oddJusta <= 1 || oddCasa <= 1) {
-                    throw new Error('Odds devem ser maiores que 1.');
-                }
-                
+                // cálculo Kelly
                 const p = 1 / oddJusta;
                 const q = 1 - p;
                 const b = oddCasa - 1;
-                
                 let kelly = ((b * p - q) / b) * 0.125;
                 kelly = Math.max(0, kelly);
-                
+
                 let kellyPercent = kelly * 100;
                 const stakeArredondada = Math.round(kellyPercent * 4) / 4;
-                
-                mostrarResultado(`Stake ideal: ${stakeArredondada.toFixed(2)}%`, false);
-                
+
+                mostrarResultado(`Odd Justa (LOG): ${oddJusta.toFixed(3)} | Stake ideal: ${stakeArredondada.toFixed(2)}%`, false);
+
             } catch (error) {
                 mostrarResultado(`Erro: ${error.message}`, true);
             }
@@ -140,12 +109,6 @@
             resultText.textContent = texto;
             resultContainer.classList.add('show');
         }
-
-        document.addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
-                calcularKelly();
-            }
-        });
     </script>
 </body>
 </html>
