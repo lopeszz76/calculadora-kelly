@@ -1,114 +1,218 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora Kelly + LOG</title>
-    <style>
-        /* mesmo CSS que você já tem, não precisa mudar */
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculadora Kelly + LOG</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px;
+    }
+    .calculator {
+      background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; padding: 28px; width: 100%; max-width: 520px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+      animation: slideIn 0.6s ease-out;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(30px);} to { opacity: 1; transform: translateY(0);} }
+    .title { text-align: center; color: white; font-size: 26px; font-weight: 800; margin-bottom: 18px; }
+    .sub { text-align: center; color: rgba(255,255,255,.8); font-size: 12px; margin-bottom: 12px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .input-group { margin-bottom: 14px; }
+    .input-label { display: block; color: rgba(255,255,255,.9); font-size: 13px; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .input-field, select {
+      width: 100%; padding: 12px 14px; border: 2px solid rgba(255,255,255,.2); border-radius: 12px;
+      background: rgba(255,255,255,.1); color: white; font-size: 15px; font-weight: 600; transition: all .25s ease;
+    }
+    .input-field:focus, select:focus { outline: none; border-color: #00ff88; background: rgba(255,255,255,.15); box-shadow: 0 0 0 3px rgba(0,255,136,.2); transform: translateY(-2px); }
+    .calculate-btn {
+      width: 100%; padding: 16px; background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+      border: none; border-radius: 12px; color: white; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
+      transition: all .25s ease; box-shadow: 0 10px 25px rgba(0,255,136,.3); margin: 8px 0 6px;
+    }
+    .calculate-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,255,136,.4); background: linear-gradient(135deg, #00cc6a 0%, #00ff88 100%); }
+    .result-container { text-align: left; margin-top: 12px; padding: 14px; background: rgba(0,255,136,.1); border: 2px solid rgba(0,255,136,.3); border-radius: 12px; backdrop-filter: blur(10px); opacity: 0; transition: all .3s ease; }
+    .result-container.show { opacity: 1; }
+    .result-text { color: #eafff6; font-size: 14px; font-weight: 600; line-height: 1.45; }
+    .error-message { background: rgba(255, 59, 48, 0.1); border: 2px solid rgba(255, 59, 48, 0.3); color: #ffebe9; }
+    .hint { text-align: center; color: rgba(255,255,255,.7); font-size: 12px; margin-top: 10px; font-style: italic; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.25); font-size:11px; color:#fff; }
+    .flex { display: flex; gap: 8px; align-items: center; }
+  </style>
 </head>
 <body>
-    <div class="calculator">
-        <h1 class="title">Calculadora Kelly + LOG</h1>
-        
-        <div class="input-group">
-            <label class="input-label" for="odd1">Odd Casa 1</label>
-            <input type="text" id="odd1" class="input-field" placeholder="Ex: 1.581" />
-        </div>
+  <div class="calculator">
+    <h1 class="title">Calculadora Kelly + LOG</h1>
+    <p class="sub">Suporta mercados <span class="pill">2-way</span> e <span class="pill">3-way</span>. LOG = método "power" com expoente = soma das probabilidades implícitas.</p>
 
-        <div class="input-group">
-            <label class="input-label" for="odd2">Odd Casa 2</label>
-            <input type="text" id="odd2" class="input-field" placeholder="Ex: 2.20" />
-        </div>
-
-        <div class="input-group">
-            <label class="input-label" for="oddCasa">Odd da Casa (seleção que vai apostar)</label>
-            <input type="text" id="oddCasa" class="input-field" placeholder="Ex: 1.82" />
-        </div>
-
-        <button class="calculate-btn" onclick="calcularStakeLOGKelly()">
-            Calcular Stake (LOG + Kelly)
-        </button>
-        
-        <div id="resultado" class="result-container">
-            <div class="result-text" id="resultText"></div>
-        </div>
-        
-        <p class="info-text">
-            Digite as odds usando ponto ou vírgula como separador decimal
-        </p>
+    <div class="input-group">
+      <label class="input-label" for="marketType">Tipo de Mercado</label>
+      <select id="marketType" onchange="onMarketTypeChange()">
+        <option value="2">2 resultados (binário)</option>
+        <option value="3">3 resultados (1x2)</option>
+      </select>
     </div>
 
-    <script>
-        // === FUNÇÃO LOG (Power Method simplificado para 2 seleções) ===
-        function calcularOddJustaLOG(odd1, odd2) {
-            const probsImplicitas = [1/odd1, 1/odd2];
-            const somaProbs = probsImplicitas[0] + probsImplicitas[1];
+    <div id="oddsContainer2" class="input-group">
+      <label class="input-label">Odds da Casa (mercado)</label>
+      <div class="row">
+        <input type="text" id="m2_odd1" class="input-field" placeholder="Odd 1 (ex: 1.581)" />
+        <input type="text" id="m2_odd2" class="input-field" placeholder="Odd 2 (ex: 2.20)" />
+      </div>
+    </div>
 
-            function ajustar(alpha) {
-                const ajustadas = probsImplicitas.map(p => Math.pow(p, alpha));
-                const soma = ajustadas.reduce((a,b) => a+b, 0);
-                return ajustadas.map(p => p/soma);
-            }
+    <div id="oddsContainer3" class="input-group" style="display:none;">
+      <label class="input-label">Odds da Casa (mercado 1x2)</label>
+      <div class="row">
+        <input type="text" id="m3_odd1" class="input-field" placeholder="Casa (ex: 2.10)" />
+        <input type="text" id="m3_oddX" class="input-field" placeholder="Empate (ex: 3.20)" />
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <input type="text" id="m3_odd2" class="input-field" placeholder="Fora (ex: 3.40)" />
+        <div></div>
+      </div>
+    </div>
 
-            // busca binária para encontrar alpha
-            let low = 0.01, high = 5, alpha = 1;
-            for (let i=0; i<50; i++) {
-                alpha = (low+high)/2;
-                const somaTest = ajustar(alpha).reduce((a,b) => a+b, 0);
-                if (somaTest > somaProbs/100) {
-                    high = alpha;
-                } else {
-                    low = alpha;
-                }
-            }
+    <div class="input-group">
+      <label class="input-label" for="selectionIndex">Seleção que você vai apostar</label>
+      <select id="selectionIndex">
+        <option value="0">Seleção 1</option>
+        <option value="1">Seleção 2</option>
+        <option value="2">Seleção 3 (apenas 1x2)</option>
+      </select>
+    </div>
 
-            return ajustar(alpha).map(p => 1/p); // odds justas
+    <div class="input-group">
+      <label class="input-label" for="oddCasa">Odd da Casa (da seleção escolhida)</label>
+      <input type="text" id="oddCasa" class="input-field" placeholder="Ex: 1.82" />
+    </div>
+
+    <button class="calculate-btn" onclick="calcularTudo()">Calcular Stake (LOG + Kelly 12,5%)</button>
+
+    <div id="resultado" class="result-container">
+      <div class="result-text" id="resultText"></div>
+    </div>
+
+    <p class="hint">Dica: use ponto ou vírgula como separador decimal. Stake arredondada em múltiplos de 0,25%.</p>
+  </div>
+
+  <script>
+    // Utilidades
+    function parseOdd(v){ if(!v) return NaN; return parseFloat(String(v).replace(',', '.')); }
+    function showResult(html, isError=false){
+      const box = document.getElementById('resultado');
+      const txt = document.getElementById('resultText');
+      box.classList.remove('show','error-message');
+      if(isError) box.classList.add('error-message'); else box.classList.remove('error-message');
+      txt.innerHTML = html; box.classList.add('show');
+    }
+    function onMarketTypeChange(){
+      const v = document.getElementById('marketType').value;
+      document.getElementById('oddsContainer2').style.display = (v==='2') ? 'block':'none';
+      document.getElementById('oddsContainer3').style.display = (v==='3') ? 'block':'none';
+      const sel = document.getElementById('selectionIndex');
+      [...sel.options].forEach((o,idx)=>{ o.disabled = (v==='2' && idx===2); });
+      if(v==='2' && sel.value==='2') sel.value='0';
+    }
+
+    // LOG (Power): p_i = q_i^(1/alpha) / sum(q_k^(1/alpha)), com alpha = soma das probs implícitas (overround)
+    function fairProbsLOG(odds){
+      const q = odds.map(o=>1/o);
+      const alpha = q.reduce((a,b)=>a+b,0); // overround total
+      const pow = q.map(x=>Math.pow(x, 1/alpha));
+      const den = pow.reduce((a,b)=>a+b,0);
+      return pow.map(v=>v/den);
+    }
+
+    function fairOddsFromProbs(p){ return p.map(pi => 1/pi); }
+
+    // Kelly 12.5% (com piso 0)
+    function kellyStakePercent(p, oddCasa){
+      const b = oddCasa - 1;
+      const q = 1 - p;
+      const fStar = (b*p - q) / b; // Kelly integral
+      const fAdj = 0.125 * fStar;  // 12,5%
+      const f = Math.max(0, fAdj);
+      // arredonda em passos de 0.25%
+      const pct = f * 100;
+      return Math.round(pct * 4) / 4;
+    }
+
+    function collectOdds(){
+      const type = document.getElementById('marketType').value;
+      if(type==='2'){
+        const o1 = parseOdd(document.getElementById('m2_odd1').value);
+        const o2 = parseOdd(document.getElementById('m2_odd2').value);
+        return [o1,o2];
+      } else {
+        const o1 = parseOdd(document.getElementById('m3_odd1').value);
+        const ox = parseOdd(document.getElementById('m3_oddX').value);
+        const o2 = parseOdd(document.getElementById('m3_odd2').value);
+        return [o1,ox,o2];
+      }
+    }
+
+    function calcularTudo(){
+      try {
+        const odds = collectOdds();
+        if(odds.some(o => isNaN(o) || o <= 1)) throw new Error('Preencha todas as odds do mercado (>1).');
+        const selIdx = parseInt(document.getElementById('selectionIndex').value,10);
+        if(selIdx >= odds.length) throw new Error('Seleção inválida para o tipo de mercado.');
+        const oddCasaSel = parseOdd(document.getElementById('oddCasa').value);
+        if(isNaN(oddCasaSel) || oddCasaSel <= 1) throw new Error('Odd da Casa da seleção precisa ser > 1.');
+
+        // Fair odds via LOG
+        const pFair = fairProbsLOG(odds);
+        const fairOdds = fairOddsFromProbs(pFair);
+        const pSel = pFair[selIdx];
+        const fairSel = fairOdds[selIdx];
+
+        // Stake Kelly 12.5%
+        const stakePct = kellyStakePercent(pSel, oddCasaSel);
+
+        // EV %
+        const ev = pSel * oddCasaSel - 1; // em unidades de banca
+        const evPct = ev * 100;
+
+        // Construir tabela de saída
+        let tbl = '<div style="overflow-x:auto"><table style="width:100%; border-collapse:collapse; color:#eafff6;">';
+        tbl += '<tr><th style="text-align:left;padding:6px;border-bottom:1px solid rgba(255,255,255,.2)">Seleção</th>'+
+               '<th style="text-align:right;padding:6px;border-bottom:1px solid rgba(255,255,255,.2)">Odd Casa</th>'+
+               '<th style="text-align:right;padding:6px;border-bottom:1px solid rgba(255,255,255,.2)">Prob. Justa (LOG)</th>'+
+               '<th style="text-align:right;padding:6px;border-bottom:1px solid rgba(255,255,255,.2)">Odd Justa (LOG)</th></tr>';
+        for(let i=0;i<odds.length;i++){
+          const lab = (odds.length===3) ? (i===0?'1 (Casa)': i===1?'X (Empate)':'2 (Fora)') : (i===0?'1':'2');
+          tbl += `<tr>`+
+                 `<td style="padding:6px;">${lab}${i===selIdx?' •':''}</td>`+
+                 `<td style="padding:6px;text-align:right;">${odds[i].toFixed(3)}</td>`+
+                 `<td style="padding:6px;text-align:right;">${(pFair[i]*100).toFixed(2)}%</td>`+
+                 `<td style="padding:6px;text-align:right;">${fairOdds[i].toFixed(3)}</td>`+
+                 `</tr>`;
         }
+        tbl += '</table></div>';
 
-        // === CALCULO FINAL (LOG + KELLY 12.5%) ===
-        function calcularStakeLOGKelly() {
-            try {
-                const odd1 = parseFloat(document.getElementById('odd1').value.replace(',', '.'));
-                const odd2 = parseFloat(document.getElementById('odd2').value.replace(',', '.'));
-                const oddCasa = parseFloat(document.getElementById('oddCasa').value.replace(',', '.'));
+        const summary = `<div class="flex" style="margin-top:10px;">
+            <span class="pill">Seleção apostada: ${selIdx+1}${odds.length===3 ? (selIdx===0?' (Casa)': selIdx===1?' (Empate)':' (Fora)') : ''}</span>
+            <span class="pill">Odd Casa: ${oddCasaSel.toFixed(3)}</span>
+            <span class="pill">Odd Justa (LOG): ${fairSel.toFixed(3)}</span>
+            <span class="pill">Prob. Justa: ${(pSel*100).toFixed(2)}%</span>
+          </div>`;
 
-                if ([odd1, odd2, oddCasa].some(o => isNaN(o) || o <= 1)) {
-                    throw new Error('Insira odds válidas (>1).');
-                }
+        const kellyStr = `<div style="margin-top:8px;font-weight:800;">Stake ideal (Kelly 12,5%): ${stakePct.toFixed(2)}%</div>`;
+        const evStr = `<div style="opacity:.9;">EV estimado: ${evPct.toFixed(2)}%</div>`;
 
-                // calcular odds justas via LOG
-                const oddsJustas = calcularOddJustaLOG(odd1, odd2);
-                const oddJusta = oddsJustas[0]; // assume aposta na primeira odd
+        showResult(tbl + summary + kellyStr + evStr, false);
 
-                // cálculo Kelly
-                const p = 1 / oddJusta;
-                const q = 1 - p;
-                const b = oddCasa - 1;
-                let kelly = ((b * p - q) / b) * 0.125;
-                kelly = Math.max(0, kelly);
+      } catch (err) {
+        showResult('Erro: ' + err.message, true);
+      }
+    }
 
-                let kellyPercent = kelly * 100;
-                const stakeArredondada = Math.round(kellyPercent * 4) / 4;
-
-                mostrarResultado(`Odd Justa (LOG): ${oddJusta.toFixed(3)} | Stake ideal: ${stakeArredondada.toFixed(2)}%`, false);
-
-            } catch (error) {
-                mostrarResultado(`Erro: ${error.message}`, true);
-            }
-        }
-
-        function mostrarResultado(texto, isError) {
-            const resultContainer = document.getElementById('resultado');
-            const resultText = document.getElementById('resultText');
-            resultContainer.classList.remove('show', 'error-message');
-            if (isError) {
-                resultContainer.classList.add('error-message');
-            }
-            resultText.textContent = texto;
-            resultContainer.classList.add('show');
-        }
-    </script>
+    // Enter = calcular
+    document.addEventListener('keypress', (e)=>{ if(e.key==='Enter') calcularTudo(); });
+  </script>
 </body>
 </html>
