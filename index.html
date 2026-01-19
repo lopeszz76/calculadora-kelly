@@ -90,7 +90,7 @@
       <input type="text" id="oddCasa" class="input-field" placeholder="Ex: 1.82" />
     </div>
 
-    <button class="calculate-btn" onclick="calcularTudo()">Calcular Stake (LOG + Kelly 12,5%)</button>
+    <button class="calculate-btn" onclick="calcularTudo()">Calcular Stake (LOG + Kelly 25%)</button>
 
     <div id="resultado" class="result-container">
       <div class="result-text" id="resultText"></div>
@@ -142,9 +142,10 @@ function kellyStakePercent(p, oddCasa){
   const b = oddCasa - 1;
   const q = 1 - p;
   const fStar = (b*p - q) / b; // Kelly integral
-  const fAdj = 0.125 * fStar;  // 12,5%
+  const fAdj = 0.25 * fStar;   // 25%
   const f = Math.max(0, fAdj);
-  // arredonda por \"piso\" em passos de 0.25% para compatibilizar com outras calculadoras
+
+  // arredondamento para múltiplos de 0,25%
   const pct = Math.floor((f * 100) * 4) / 4;
   return pct;
 }
@@ -209,7 +210,7 @@ function kellyStakePercent(p, oddCasa){
             <span class="pill">Prob. Justa: ${(pSel*100).toFixed(2)}%</span>
           </div>`;
 
-        const kellyStr = `<div style="margin-top:8px;font-weight:800;">Stake ideal (Kelly 12,5%): ${stakePct.toFixed(2)}%</div>`;
+        const kellyStr = `<div style="margin-top:8px;font-weight:800;">Stake ideal (Kelly 25%): ${stakePct.toFixed(2)}%</div>`;
         const evStr = `<div style="opacity:.9;">EV estimado: ${evPct.toFixed(2)}%</div>`;
 
         showResult(tbl + summary + kellyStr + evStr, false);
